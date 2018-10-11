@@ -1,0 +1,6 @@
+#!/usr/bin/env ruby
+
+require 'mts/autojoin'
+
+puts Mts::Autojoin::Runner.new(ARGV[0]).run!
+
