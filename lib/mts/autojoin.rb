@@ -1,5 +1,6 @@
 require "mts/autojoin/version"
 require "tempfile"
+require "pry"
 
 module Mts
   module Autojoin
@@ -12,26 +13,26 @@ module Mts
       attr_reader :video_files, :max_file_size, :grouped_video_files
 
       def initialize(path)
-        @full_path = File.expand_path(path)
+        @full_path = File.expand_path(path || '/')
         @video_files = []
         @max_file_size = TWO_GIGABYTES
         @grouped_video_files = Hash.new { |h,k| h[k] = [] }
       end
 
       def check_folder
-        if File.directory?(@full_path)
-          puts "Finding video files at #{full_path}..."
+        if File.directory?(full_path)
+          puts "MTS files will be checked at '#{full_path}'"
         else
-          puts "You did not provide a valid folder"
-          exit
+          abort 'You did not provide a valid folder'
         end
       end
 
       def check_video_files
-        Dir.foreach(@full_path) do |file|
-          next if (file == '.' or file == '..')
+        Dir.foreach(full_path) do |file|
+          next if (file == '.' || file == '..' || !['.mts','.MTS','.ts','.TS'].include?(File.extname(file)))
           @video_files << [file, File.size(File.expand_path(file, full_path))]
         end
+        abort "No MTS files found at '#{full_path}'" if @video_files.empty?
       end
 
       # Check if there are 4 gigabyte files
