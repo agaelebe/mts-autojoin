@@ -1,6 +1,5 @@
 require "mts/autojoin/version"
 require "tempfile"
-require "pry"
 
 module Mts
   module Autojoin
