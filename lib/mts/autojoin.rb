@@ -27,8 +27,8 @@ module Mts
       end
 
       def check_video_files
-        Dir.foreach(full_path) do |file|
-          next if (file == '.' || file == '..' || !['.mts','.MTS','.ts','.TS'].include?(File.extname(file)))
+        Dir.entries(full_path).sort.each do |file|
+          next if (file == '.' || file == '..' || !['.mts','.MTS'].include?(File.extname(file)))
           @video_files << [file, File.size(File.expand_path(file, full_path))]
         end
         abort "No MTS files found at '#{full_path}'" if @video_files.empty?
