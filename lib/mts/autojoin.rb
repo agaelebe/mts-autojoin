@@ -8,8 +8,8 @@ module Mts
       TWO_GIGABYTES = 2040000000
       FOUR_GIGABYTES = 4172000000
 
-      attr_accessor :full_path
-      attr_reader :video_files, :max_file_size, :grouped_video_files
+      attr_accessor :full_path, :video_files, :grouped_video_files
+      attr_reader :max_file_size
 
       def initialize(path)
         @full_path = File.expand_path(path || '/')
@@ -34,7 +34,8 @@ module Mts
         abort "No MTS files found at '#{full_path}'" if @video_files.empty?
       end
 
-      # Check if there are 4 gigabyte files
+      # Update max_file_size to FOUR_GIGABYTES if there is at least one file
+      # equal or greather than 4 gigabytes
       def set_max_file_size
         @video_files.each do |file, size|
           if size >= FOUR_GIGABYTES
@@ -49,7 +50,7 @@ module Mts
 
         @video_files.each do |file, size|
           @grouped_video_files[current_filegroup] += [file]
-          if File.size(File.expand_path(file, full_path)) <= max_file_size
+          if size < max_file_size
             current_filegroup += 1
           end
         end
@@ -70,7 +71,7 @@ module Mts
       end
 
       def execute_concat_command(file, number)
-        system "ffmpeg -f concat -safe 0 -i #{file} -c copy video-output-#{number}.mts"
+        Kernel.system "ffmpeg -f concat -safe 0 -i #{file} -c copy video-output-#{number}.mts"
       end
 
       def delete_metafiles

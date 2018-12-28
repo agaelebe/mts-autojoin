@@ -117,7 +117,7 @@ RSpec.describe Mts::Autojoin do
 
     end
 
-    context 'when there are 3 mts files named named 00002.mts, 00003.mts and 00004.mts' do
+    context 'when there are 3 MTS files named named 00002.MTS, 00003.MTS and 00004.MTS' do
 
       before do
         @video_filenames = ['00002.MTS', '00003.MTS', '00004.MTS']
@@ -145,6 +145,150 @@ RSpec.describe Mts::Autojoin do
 
     after do
       FileUtils.rmtree(@valid_path)
+    end
+
+  end
+
+
+  describe 'group video files' do
+    context 'when the video_files list is empty' do
+      it 'keeps the grouped_video_files empty' do
+        runner = Mts::Autojoin::Runner.new(nil)
+        runner.video_files = []
+        runner.group_video_files
+
+        expect(runner.grouped_video_files).to be_empty
+      end
+    end
+
+
+    context 'when the video_files list has two files of less than two gigabytes' do
+
+      it 'creates one file group for each file' do
+        runner = Mts::Autojoin::Runner.new(nil)
+        runner.video_files = [['00002.MTS', 100],['00003.MTS', 1000]]
+        runner.group_video_files
+
+        expect(runner.grouped_video_files).to eq({
+          1 => ['00002.MTS'],
+          2 => ['00003.MTS']
+        })
+      end
+
+    end
+
+    context 'when the video_files list has two files and the first file has two gigabytes' do
+
+      it 'creates one file group with both files' do
+        runner = Mts::Autojoin::Runner.new(nil)
+        runner.video_files = [['00002.MTS', 2040000000],['00003.MTS', 1000]]
+        runner.group_video_files
+
+        expect(runner.grouped_video_files).to eq({
+          1 => ['00002.MTS', '00003.MTS']
+        })
+      end
+
+    end
+
+    context 'when the video_files list has two files and the first file has more than two gigabytes' do
+
+      it 'creates one file group with both files' do
+        runner = Mts::Autojoin::Runner.new(nil)
+        runner.video_files = [['00002.MTS', 2040000000 + 1000],['00003.MTS', 1000]]
+        runner.group_video_files
+
+        expect(runner.grouped_video_files).to eq({
+          1 => ['00002.MTS', '00003.MTS']
+        })
+      end
+
+    end
+
+    context 'when the video_files list has two files and first file and the second file have two gigabytes' do
+
+      it 'creates one file group with both files' do
+        runner = Mts::Autojoin::Runner.new(nil)
+        runner.video_files = [['00002.MTS', 2040000000],['00003.MTS', 2040000000]]
+        runner.group_video_files
+
+        expect(runner.grouped_video_files).to eq({
+          1 => ['00002.MTS', '00003.MTS']
+        })
+      end
+
+    end
+
+    context 'when the video_files list has three files and the second file has two gigabytes and the other files has less than two gigabytes' do
+
+      it 'creates two file groups, one with the first file and the second with the other files' do
+        runner = Mts::Autojoin::Runner.new(nil)
+        runner.video_files = [['00002.MTS', 1000000],['00003.MTS', 2040000000],['00004.MTS', 1500000]]
+        runner.group_video_files
+
+        expect(runner.grouped_video_files).to eq({
+          1 => ['00002.MTS'],
+          2 => ['00003.MTS', '00004.MTS']
+        })
+
+      end
+    end
+
+    context 'when the video_files list has three files and they all have more than two gigabytes' do
+
+      it 'creates two file groups, one with the first file and the second with the other files' do
+        runner = Mts::Autojoin::Runner.new(nil)
+        runner.video_files = [['00002.MTS', 2040000000],['00003.MTS', 2040000000],['00004.MTS', 2040000000]]
+        runner.group_video_files
+
+        expect(runner.grouped_video_files).to eq({
+          1 => ['00002.MTS', '00003.MTS', '00004.MTS']
+        })
+
+      end
+    end
+
+  end
+
+  describe 'create file lists and execute' do
+
+    context 'when there are two grouped video files' do
+
+      before do
+        @runner = Mts::Autojoin::Runner.new(nil)
+        @runner.grouped_video_files = {
+          1 => ['00002.MTS'],
+          2 => ['00003.MTS', '00004.MTS']
+        }
+      end
+
+      it 'creates a metafile with the first file' do
+        allow(Kernel).to receive(:system)
+        @runner.create_file_list_and_execute
+        file_content = File.read('file-list-1.meta')
+        expect(file_content).to eq("file '/00002.MTS'\n")
+      end
+
+
+      it 'creates a metafile with the the other files' do
+        allow(Kernel).to receive(:system)
+        @runner.create_file_list_and_execute
+        file_content = File.read('file-list-2.meta')
+        expect(file_content).to eq("file '/00003.MTS'\nfile '/00004.MTS'\n")
+      end
+
+      it 'executes the ffmpeg concat command for both metafiles to create two video files' do
+        expect(Kernel).to receive(:system).with("ffmpeg -f concat -safe 0 -i file-list-1.meta -c copy video-output-1.mts")
+        expect(Kernel).to receive(:system).with("ffmpeg -f concat -safe 0 -i file-list-2.meta -c copy video-output-2.mts")
+        @runner.create_file_list_and_execute
+      end
+
+
+      after do
+        File.delete('file-list-1.meta')
+        File.delete('file-list-2.meta')
+      end
+
     end
 
   end
